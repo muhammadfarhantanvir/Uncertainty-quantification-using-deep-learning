@@ -1,0 +1,315 @@
+{
+    "currentMethod": "SNGP",
+    "dataset": {
+      "name": "cifar10",
+      "sub_directory": null,
+      "include_classes":null,
+      "exclude_classes":null,
+      "train_valid_split_seed": 67280421310721
+    },
+    "neptune_mode": "debug",
+    "device":"cuda:0",
+    "tags":["development"],
+    "UQMethods": {
+      "BE": {
+        "source_files": [
+          "./src/config_default_next.json",
+          "./src/train_model.py",
+          "./src/config_BE.py",
+          "./src/architectures/ensemble.py",
+          "./src/architectures/convnext.py",
+          "./src/processing.py",
+          "./src/densities/kernel.py",
+          "./src/architectures/gradient_estim.py",
+          "./src/optimizer.py",
+          "./src/loss.py",
+          "./src/callback.py",
+          "./src/densities/distributions.py",
+          "./src/neptune_callback.py",
+          "./src/neptune_tracking.py",
+          "./src/uncertainty_utils.py",
+          "./src/evaluation.py",
+          "./src/net_utils.py",
+          "./src/datasets.py"
+        ],
+        "training": {
+          "batch_size": 64,
+          "learning_rate": 0.00025,
+          "use_wd": false,
+          "num_models": 10,
+          "num_epochs": 100,
+          "rand_flip_prob": 0.5,
+          "weights_seed": null,
+          "prior_variance": 0.1,
+          "pred_dist_std": 1.0,
+          "eta": 0.01,
+          "density_method": "ssge",
+          "do_auto_repulse": true,
+          "gamma": 1.0,
+          "annealing_steps": 10,
+          "use_lr_scheduler": true,
+          "early_stopping": {
+            "monitor": "valid_loss",
+            "min_delta": 2e-3,
+            "patience": 20
+          }
+        },
+        "network": {
+          "base_network": "ConvNeXt",
+          "net_params": {
+            "in_chans": 3,
+            "num_classes": 10,
+            "depths": [3, 3, 9, 3],
+            "dims": [96, 192, 384, 768],
+            "drop_path_rate": 0.0,
+            "layer_scale_init_value": 1e-6,
+            "head_init_scale": 1.0,
+            "kernel_size": 4,
+            "stride": -1,
+            "downsample_layers": -1,
+            "stages": -1,
+            "activation": "GELU",
+            "include_head": true,
+            "use_spec_norm": false,
+            "spec_norm_iteration": 1
+          }
+        },
+        "loss": {
+          "loss_func": "EnsembleClassificationLoss",
+          "loss_params": {
+            "is_logits": false,
+            "num_classes": 10
+          }
+        },
+        "evaluation": {
+          "callbacks": [
+            {
+              "callback_name": "calc_validation_total_entropy",
+              "callback_params": {
+                "do_activate": true,
+                "log_base_str": "two"
+              }
+            }
+          ]
+        },
+        "schedulers":{
+            "lr_sched":"CosineDecayWithWarmup",
+            "lr_sched_params":{
+               "lr_warmup_epochs":1,
+               "reference_batch_size": 128,
+               "lr_decay_epochs":[
+                  60,
+                  120,
+                  160
+               ]
+            },
+            "FitOneCycle_params":{
+              "div": 25.0,
+              "div_final": 1e4,
+              "pct_start": 0.3,
+              "weight_decay": 0.1
+            }
+         }
+      },
+      "SNGP": {
+        "source_files": [
+          "./src/config_default_next.json",
+          "./src/train_model.py",
+          "./src/config_SNGP.py",
+          "./src/architectures/convnext_sngp.py",
+          "./src/processing.py",
+          "./src/optimizer.py",
+          "./src/loss.py",
+          "./src/callback.py",
+          "./src/densities/gaussian_process.py",
+          "./src/architectures/sngp_classification_layer.py",
+          "./src/densities/random_fourier_features.py",
+          "./src/neptune_callback.py",
+          "./src/neptune_tracking.py",
+          "./src/uncertainty_utils.py",
+          "./src/evaluation.py",
+          "./src/net_utils.py",
+          "./src/datasets.py"
+        ],
+        "training": {
+          "batch_size": 128,
+          "learning_rate": 0.08,
+          "use_wd": false,
+          "wd": 3e-4,
+          "use_nesterov": true,
+          "one_minus_momentum": 0.1,
+          "num_epochs": 250,
+          "rand_flip_prob": 0.5,
+          "weights_seed": null,
+          "use_lr_scheduler": true,
+          "early_stopping": {
+            "monitor": "valid_loss",
+            "min_delta": 2e-3,
+            "patience": 20
+          }
+        },
+        "network": {
+          "base_network": "ConvNeXtSNGP",
+          "net_params": {
+            "in_chans": 3,
+            "num_classes": 10,
+            "depths": [3, 3, 9, 3],
+            "dims": [96, 192, 384, 768],
+            "drop_path_rate": 0.1,
+            "layer_scale_init_value": 1e-6,
+            "head_init_scale": 1.0,
+            "kernel_size": 4,
+            "stride": -1,
+            "downsample_layers": -1,
+            "stages": -1,
+            "activation": "GELU",
+            "use_spec_norm": true,
+            "spec_norm_iteration": 1,
+            "include_head": false
+          }
+        },
+        "loss": {
+          "loss_func": "CrossEntropyClassificationLoss",
+          "loss_params": {
+            "is_logits": true
+          }
+        },
+        "model_params": {
+          "pre_clas_features": 768,
+          "custom_random_features_initializer": null
+        },
+        "evaluation": {
+          "callbacks": [
+            {
+              "callback_name": "calc_sngp_uncertainty",
+              "callback_params": {
+                "log_base_str": "natural"
+              }
+            }
+          ]
+        },
+        "schedulers":{
+            "lr_sched":"CosineDecayWithWarmup",
+            "lr_sched_params":{
+               "lr_warmup_epochs":1,
+               "lr_decay_ratio":0.2,
+               "reference_batch_size": 128,
+               "lr_decay_epochs":[
+                  60,
+                  120,
+                  160
+               ]
+            },
+            "FitOneCycle_params":{
+              "div": 25.0,
+              "div_final": 1e4,
+              "pct_start": 0.3,
+              "weight_decay": 0.1
+            }
+         }
+      },
+      "PN": {
+        "source_files": [
+          "./src/config_default_next.json",
+          "./src/train_model.py",
+          "./src/config_PN.py",
+          "./src/architectures/convnext.py",
+          "./src/architectures/posteriornet.py",
+          "./src/processing.py",
+          "./src/optimizer.py",
+          "./src/loss.py",
+          "./src/callback.py",
+          "./src/densities/MixtureDensity.py",
+          "./src/densities/NormalizingFlowDensity.py",
+          "./src/densities/BatchedNormalizingFlowDensity.py",
+          "./src/neptune_callback.py",
+          "./src/neptune_tracking.py",
+          "./src/uncertainty_utils.py",
+          "./src/evaluation.py",
+          "./src/net_utils.py",
+          "./src/datasets.py"
+        ],
+        "training": {
+          "learning_rate": 2e-3,
+          "use_wd": true,
+          "wd": 3e-4,
+          "one_minus_momentum": 0.1,
+          "num_epochs": 120,
+          "use_random_flip": true,
+          "use_random_erasing": true,
+          "use_randaugment": true,
+          "rand_flip_prob": 0.5,
+          "random_erasing_prob": 0.1,
+          "weights_seed": null,
+          "use_lr_scheduler": true,
+          "early_stopping": {
+            "monitor": "valid_loss",
+            "min_delta": 2e-3,
+            "patience": 20
+          }
+        },
+        "network": {
+          "base_network": "ConvNeXt",
+          "net_params": {
+            "in_chans": 3,
+            "num_classes": 10,
+            "depths": [6, 4],
+            "dims": [32, 64],
+            "drop_path_rate": 0.1,
+            "layer_scale_init_value": 1e-6,
+            "head_init_scale": 1.0,
+            "kernel_size": 4,
+            "stride": -1,
+            "downsample_layers": -1,
+            "stages": -1,
+            "activation": "GELU",
+            "include_head": true,
+            "use_spec_norm": false,
+            "spec_norm_iteration": 1
+          }
+        },
+        "loss": {
+          "loss_func": "UCELoss",
+          "loss_params":{
+            "output_dim": 10
+          }
+        },
+        "post_net_params": {
+          "no_density": false,
+          "density_type": "radial_flow",
+          "n_density": 6,
+          "init_weights": true
+        },
+        "evaluation": {
+          "callbacks": [
+            {
+              "callback_name": "calc_dirichlet_uncertainty",
+              "callback_params": {
+                "eps": 1e-20,
+                "normalize_uncertainty": false
+              }
+            }
+          ]
+        },
+        "schedulers":{
+            "lr_sched":"CosineDecayWithWarmup",
+            "lr_sched_params":{
+               "lr_warmup_epochs":3,
+               "lr_decay_ratio":0.2,
+               "reference_batch_size": 128,
+               "lr_decay_epochs":[
+                  60,
+                  120,
+                  160
+               ]
+            },
+            "FitOneCycle_params":{
+              "div": 25.0,
+              "div_final": 1e4,
+              "pct_start": 0.3,
+              "weight_decay": 0.1
+            }
+         }
+      }
+    }
+  }
